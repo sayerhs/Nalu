@@ -45,34 +45,63 @@ namespace nalu{
 
   enum PetraType {
     PT_TPETRA,
+    PT_HYPRE,
     PT_END
   };
 
 
 class LinearSolvers;
 class Simulation;
+class Realm;
 
 class LinearSolver
 {
   public:
-  LinearSolver(std::string name, LinearSolvers *linearSolvers,
-    bool recompute_preconditioner, bool reuse_preconditioner) : name_(name), linearSolvers_(linearSolvers),
-    recomputePreconditioner_(recompute_preconditioner), reusePreconditioner_(reuse_preconditioner), timerPrecond_(0.0) {}
-  virtual ~LinearSolver() {}
-  std::string name_;
-  virtual PetraType getType() = 0;
-  Simulation *root();
-  LinearSolvers *parent();
-  LinearSolvers *linearSolvers_;
+    LinearSolver(
+      std::string name,
+      LinearSolvers* linearSolvers,
+      LinearSolverConfig* config)
+      : name_(name),
+        linearSolvers_(linearSolvers),
+        config_(config),
+        recomputePreconditioner_(config->recomputePreconditioner()),
+        reusePreconditioner_(config->reusePreconditioner()),
+        timerPrecond_(0.0)
+    {}
+    virtual ~LinearSolver() {}
+    std::string name_;
+
+    virtual PetraType getType() = 0;
+
+    virtual int solve(Teuchos::RCP<LinSys::Vector>, int&, double&) = 0;
+
+    virtual void setupLinearSolver(
+      Teuchos::RCP<LinSys::Vector>,
+      Teuchos::RCP<LinSys::Matrix>,
+      Teuchos::RCP<LinSys::Vector>,
+      Teuchos::RCP<LinSys::MultiVector>) = 0;
+
+    virtual void destroyLinearSolver() = 0;
+
+    Simulation* root();
+    LinearSolvers* parent();
+    LinearSolvers* linearSolvers_;
+    Realm* realm_{nullptr};
   protected:
+  LinearSolverConfig* config_;
   bool recomputePreconditioner_;
   bool reusePreconditioner_;
   double timerPrecond_;
+  bool activateMueLu_{false};
+
   public:
   bool & recomputePreconditioner() {return recomputePreconditioner_;}
   bool & reusePreconditioner() {return reusePreconditioner_;}
   void zero_timer_precond() { timerPrecond_ = 0.0;}
   double get_timer_precond() { return timerPrecond_;}
+  bool& activeMueLu() { return activateMueLu_; }
+
+  LinearSolverConfig* getConfig() { return config_; }
 };
 
 class TpetraLinearSolver : public LinearSolver
@@ -82,38 +111,35 @@ class TpetraLinearSolver : public LinearSolver
   TpetraLinearSolver(
     std::string solverName,
     TpetraLinearSolverConfig *config,
-    const Teuchos::RCP<Teuchos::ParameterList> params, const Teuchos::RCP<Teuchos::ParameterList> paramsPrecond,
+    const Teuchos::RCP<Teuchos::ParameterList> params,
+    const Teuchos::RCP<Teuchos::ParameterList> paramsPrecond,
     LinearSolvers *linearSolvers);
-  ~TpetraLinearSolver() ;
+  virtual ~TpetraLinearSolver() ;
   
     void setSystemObjects(
       Teuchos::RCP<LinSys::Matrix> matrix,
       Teuchos::RCP<LinSys::Vector> rhs);
 
-    void setupLinearSolver(
+    virtual void setupLinearSolver(
       Teuchos::RCP<LinSys::Vector> sln,
       Teuchos::RCP<LinSys::Matrix> matrix,
       Teuchos::RCP<LinSys::Vector> rhs,
-      Teuchos::RCP<LinSys::MultiVector> coords);
+      Teuchos::RCP<LinSys::MultiVector> coords) override;
 
-    void destroyLinearSolver();
+    virtual void destroyLinearSolver() override;
 
     void setMueLu();
 
     int residual_norm(int whichNorm, Teuchos::RCP<LinSys::Vector> sln, double& norm);
 
-    int solve(
+    virtual int solve(
       Teuchos::RCP<LinSys::Vector> sln,
       int & iterationCount,
-      double & scaledResidual);
+      double & scaledResidual) override;
 
-    virtual PetraType getType() { return PT_TPETRA; }
-    TpetraLinearSolverConfig *getConfig() { return config_; }
-
-    bool & activeMueLu(){ return activateMueLu_; }
+    virtual PetraType getType() override { return PT_TPETRA; }
 
   private:
-    TpetraLinearSolverConfig *config_;
     const Teuchos::RCP<Teuchos::ParameterList> params_;
     const Teuchos::RCP<Teuchos::ParameterList> paramsPrecond_;
     Teuchos::RCP<LinSys::Matrix> matrix_;
@@ -124,7 +150,6 @@ class TpetraLinearSolver : public LinearSolver
     Teuchos::RCP<MueLu::TpetraOperator<SC,LO,GO,NO> > mueluPreconditioner_;
     Teuchos::RCP<LinSys::MultiVector> coords_;
 
-    bool activateMueLu_;
     std::string preconditionerType_;
 };
 

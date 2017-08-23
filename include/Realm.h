@@ -79,6 +79,7 @@ class TensorProductQuadratureRule;
 class LagrangeBasis;
 class PromotedElementIO;
 struct ElementDescription;
+class HypreMeshInfo;
 
 /** Representation of a computational domain and physics equations solved on
  * this domain.
@@ -586,6 +587,11 @@ class Realm {
 
   stk::mesh::PartVector allPeriodicInteractingParts_;
   stk::mesh::PartVector allNonConformalInteractingParts_;
+
+  std::unique_ptr<HypreMeshInfo> hypreMeshInfo_;
+  int hypreILower_;
+  int hypreIUpper_;
+  ScalarIntFieldType* hypreGlobalId_;
 };
 
 } // namespace nalu

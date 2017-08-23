@@ -99,6 +99,9 @@
 // transfer
 #include <xfer/Transfer.h>
 
+// Hypre
+#include <HypreMeshInfo.h>
+
 // stk_util
 #include <stk_util/parallel/Parallel.hpp>
 #include <stk_util/environment/WallTime.hpp>
@@ -799,11 +802,15 @@ Realm::setup_adaptivity()
 void
 Realm::setup_nodal_fields()
 {
+  hypreGlobalId_ = &(metaData_->declare_field<ScalarIntFieldType>(
+                       stk::topology::NODE_RANK, "hypre_global_id"));
   // register global id and rank fields on all parts
   const stk::mesh::PartVector parts = metaData_->get_parts();
   for ( size_t ipart = 0; ipart < parts.size(); ++ipart ) {
     naluGlobalId_ = &(metaData_->declare_field<GlobalIdFieldType>(stk::topology::NODE_RANK, "nalu_global_id"));
     stk::mesh::put_field(*naluGlobalId_, *parts[ipart]);
+    stk::mesh::put_field(*hypreGlobalId_, *parts[ipart]);
+
   }
 
   // loop over all material props targets and register nodal fields
@@ -3657,7 +3664,50 @@ Realm::set_global_id()
     for ( stk::mesh::Bucket::size_type k = 0; k < length; ++k ) {
       naluGlobalIds[k] = bulkData_->identifier(b[k]);
     }
-  }  
+  }
+
+  {
+    const stk::mesh::Selector s_local = metaData_->locally_owned_part();
+    const auto& bkts = bulkData_->get_buckets(
+      stk::topology::NODE_RANK, s_local);
+
+    size_t num_nodes = 0;
+    int nprocs = bulkData_->parallel_size();
+    int iproc = bulkData_->parallel_rank();
+    std::vector<int> nodesPerProc(nprocs);
+    std::vector<int> hypreOffsets(nprocs+1);
+
+    for (auto b: bkts) num_nodes += b->size();
+
+    MPI_Allgather(&num_nodes, 1, MPI_INT, nodesPerProc.data(), 1, MPI_INT,
+                  bulkData_->parallel());
+
+    hypreOffsets[0] = 0;
+    for (int i=1; i <= nprocs; i++)
+      hypreOffsets[i] = hypreOffsets[i-1] + nodesPerProc[i-1];
+
+    hypreILower_ = hypreOffsets[iproc];
+    hypreIUpper_ = hypreOffsets[iproc+1] - 1;
+
+    size_t ii=0;
+    std::vector<stk::mesh::EntityId> localIDs(num_nodes);
+    for (auto b: bkts) {
+      for (size_t in=0; in < b->size(); in++) {
+        auto node = (*b)[in];
+        auto nid = bulkData_->identifier(node);
+        localIDs[ii++] = nid;
+      }
+    }
+    std::sort(localIDs.begin(), localIDs.end());
+
+    size_t nidx = hypreILower_;
+    for (auto nid: localIDs) {
+      auto node = bulkData_->get_entity(
+        stk::topology::NODE_RANK, nid);
+      int* hids = stk::mesh::field_data(*hypreGlobalId_, node);
+      *hids = nidx++;
+    }
+  }
 }
 
 //--------------------------------------------------------------------------
@@ -4837,8 +4887,9 @@ Realm::get_inactive_selector()
     ( NULL != ablForcingAlg_)
     ? (ablForcingAlg_->inactive_selector())
     : stk::mesh::Selector());
-  
-  return inactiveOverSetSelector | inactiveDataProbeSelector | inactiveABLForcing;
+
+  stk::mesh::Selector auraSel(metaData_->aura_part());
+  return inactiveOverSetSelector | inactiveDataProbeSelector | inactiveABLForcing | auraSel;
 }
 
 //--------------------------------------------------------------------------

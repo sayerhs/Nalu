@@ -13,6 +13,10 @@
 #include <Teuchos_ParameterList.hpp>
 #include <Teuchos_RCP.hpp>
 
+namespace Ifpack2 {
+class FunctionParameter;
+}
+
 namespace YAML {
 class Node;
 }
@@ -20,38 +24,112 @@ class Node;
 namespace sierra{
 namespace nalu{
 
-class TpetraLinearSolverConfig {
-  public:
-    TpetraLinearSolverConfig();
-    ~TpetraLinearSolverConfig();
-    std::string name() const;
-    void load(const YAML::Node & node);
-    const Teuchos::RCP<Teuchos::ParameterList> & params() const;
-    const Teuchos::RCP<Teuchos::ParameterList> & paramsPrecond() const;
-    bool getWriteMatrixFiles() { return writeMatrixFiles_; }
-    bool getSummarizeMueluTimer() { return summarizeMueluTimer_; }
-    bool use_MueLu() const {return useMueLu_;}
-    std::string & muelu_xml_file() {return muelu_xml_file_;}
-    bool recomputePreconditioner() { return recomputePreconditioner_; }
-    bool reusePreconditioner() { return reusePreconditioner_; }
-    std::string get_method() {return method_;}
-    std::string preconditioner_type(){ return preconditionerType_;}
+class LinearSolverConfig
+{
+public:
+  LinearSolverConfig();
+  virtual ~LinearSolverConfig() = default;
 
-  private:
-    std::string name_;
-    std::string method_;
-    std::string precond_;
-    Teuchos::RCP<Teuchos::ParameterList> params_;
-    Teuchos::RCP<Teuchos::ParameterList> paramsPrecond_;
+  virtual void load(const YAML::Node&) = 0;
 
-    std::string muelu_xml_file_;
-    bool useMueLu_;
-    bool recomputePreconditioner_;
-    bool reusePreconditioner_;
-    bool writeMatrixFiles_;
-    bool summarizeMueluTimer_;
-    std::string preconditionerType_;
+  inline std::string name() const
+  { return name_ ; }
+
+  const Teuchos::RCP<Teuchos::ParameterList> & params() const
+  { return params_; }
+
+  const Teuchos::RCP<Teuchos::ParameterList> & paramsPrecond() const
+  { return paramsPrecond_; }
+
+  inline bool getWriteMatrixFiles() const
+  { return writeMatrixFiles_; }
+
+  inline bool recomputePreconditioner() const
+  { return recomputePreconditioner_; }
+
+  inline bool reusePreconditioner() const
+  { return reusePreconditioner_; }
+
+  std::string get_method() const
+  {return method_;}
+
+  std::string preconditioner_type() const
+  { return preconditionerType_;}
+
+protected:
+  std::string name_;
+  std::string method_;
+  std::string precond_;
+  std::string preconditionerType_{"RELAXATION"};
+
+  Teuchos::RCP<Teuchos::ParameterList> params_;
+  Teuchos::RCP<Teuchos::ParameterList> paramsPrecond_;
+
+  bool recomputePreconditioner_{false};
+  bool reusePreconditioner_{false};
+  bool writeMatrixFiles_{false};
 };
+
+class TpetraLinearSolverConfig : public LinearSolverConfig
+{
+public:
+  TpetraLinearSolverConfig();
+  virtual ~TpetraLinearSolverConfig();
+
+  virtual void load(const YAML::Node & node) final;
+  bool getSummarizeMueluTimer() { return summarizeMueluTimer_; }
+  std::string & muelu_xml_file() {return muelu_xml_file_;}
+  bool use_MueLu() const {return useMueLu_;}
+
+private:
+  std::string muelu_xml_file_;
+  bool summarizeMueluTimer_{false};
+  bool useMueLu_{false};
+};
+
+class HypreLinearSolverConfig : public LinearSolverConfig
+{
+public:
+  HypreLinearSolverConfig();
+
+  virtual ~HypreLinearSolverConfig() {};
+
+  virtual void load(const YAML::Node&);
+
+protected:
+  std::vector<Teuchos::RCP<Ifpack2::FunctionParameter>> funcParams_;
+  double tolerance_{1.0e-4};
+  int maxIterations_{50};
+  int outputLevel_{1};
+  int kspace_{1};
+
+  /* BoomerAMG options */
+  double bamgStrongThreshold_{0.57};
+  int bamgCoarsenType_{6};
+  int bamgCycleType_{1};
+  int bamgRelaxType_{6};
+  int bamgRelaxOrder_{1};
+  int bamgNumSweeps_{2};
+  int bamgMaxLevels_{20};
+  int bamgInterpType_{0};
+  std::string bamgEuclidFile_{""};
+
+  bool isHypreSolver_{true};
+
+private:
+  void boomerAMG_solver_config(const YAML::Node&);
+  void boomerAMG_precond_config(const YAML::Node&);
+
+  void euclid_precond_config(const YAML::Node&);
+
+  void hypre_gmres_solver_config(const YAML::Node&);
+  void hypre_pcg_solver_config(const YAML::Node&);
+
+  void configure_hypre_preconditioner(const YAML::Node&);
+  void configure_hypre_solver(const YAML::Node&);
+
+};
+
 
 } // namespace nalu
 } // namespace Sierra

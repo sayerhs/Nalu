@@ -87,6 +87,7 @@ LinearSystem *LinearSystem::create(Realm& realm, const unsigned numDof, Equation
 {
   switch(solver->getType()) {
   case PT_TPETRA:
+  case PT_HYPRE:
     return new TpetraLinearSystem(realm,
                                   numDof,
                                   eqSys,

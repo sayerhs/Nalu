@@ -23,6 +23,7 @@ namespace nalu{
 
 class LinearSolver;
 class TpetraLinearSolverConfig;
+class HypreLinearSolverConfig;
 class Simulation;
 
 class LinearSolvers {
@@ -40,9 +41,11 @@ public:
   
   typedef std::map<EquationType, LinearSolver *> SolverMap;
   typedef std::map<std::string, TpetraLinearSolverConfig *> SolverTpetraConfigMap;
+  typedef std::map<std::string, HypreLinearSolverConfig*> HypreSolverConfigMap;
 
   SolverMap solvers_;
   SolverTpetraConfigMap solverTpetraConfig_;
+  HypreSolverConfigMap solverHypreConfig_;
   
   Simulation& sim_;
 
