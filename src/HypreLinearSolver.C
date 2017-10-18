@@ -72,7 +72,7 @@ HypreLinearSolver::solve(
     sync_hypre_id();
     // Create the solver
     hypreSolver_ = Teuchos::rcp(
-      new Ifpack2::NaluHypre<LinSys::Scalar, LinSys::LocalOrdinal, LinSys::GlobalOrdinal, LinSys::Node>(matrix_, realm_));
+      new Ifpack2::NaluHypre<LinSys::Scalar, LinSys::LocalOrdinal, LinSys::GlobalOrdinal, LinSys::Node>(matrix_, realm_, numDof_));
 
     hypreSolver_->dumpMatrixFiles(config_->getWriteMatrixFiles());
     hypreSolver_->setParameters(*(config_->paramsPrecond()));

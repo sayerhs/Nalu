@@ -24,7 +24,8 @@ class NaluHypre:
 public:
   NaluHypre(
     const Teuchos::RCP<const Tpetra::RowMatrix<Scalar,LocalOrdinal,GlobalOrdinal,Node> >& A,
-    sierra::nalu::Realm* realm);
+    sierra::nalu::Realm* realm,
+    int numDof);
 
   virtual ~NaluHypre() {}
 
@@ -42,6 +43,8 @@ public:
 protected:
   sierra::nalu::Realm* realm_;
 
+  int numDof_{1};
+
   int outputCounter_{0};
 
   bool writeMatrixFiles_{false};
@@ -50,12 +53,18 @@ protected:
 template<class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
 NaluHypre<Scalar,LocalOrdinal,GlobalOrdinal,Node>::NaluHypre(
   const Teuchos::RCP<const Tpetra::RowMatrix<Scalar,LocalOrdinal,GlobalOrdinal,Node> >& A,
-  sierra::nalu::Realm* realm
+  sierra::nalu::Realm* realm,
+  int numDof
 ): Ifpack2::Ifpack2_Hypre<Scalar, LocalOrdinal, GlobalOrdinal, Node>(A),
-  realm_(realm)
+  realm_(realm),
+  numDof_(numDof)
 {
-  this->hypreILower_ = realm_->hypreILower_;
-  this->hypreIUpper_ = realm_->hypreIUpper_;
+  // Treat lower ID differently when DOF > 1
+  if (!this->Comm()->getRank())
+    this->hypreILower_ = realm_->hypreILower_;
+  else
+    this->hypreILower_ = (realm_->hypreILower_ - 1) * numDof_ + 1;
+  this->hypreIUpper_ = realm_->hypreIUpper_ * numDof_;
   this->initHypreDataStructures();
 }
 
@@ -100,18 +109,20 @@ void NaluHypre<Scalar,LocalOrdinal,GlobalOrdinal,Node>::initialize(){
       size_t numEntries;
       this->A_->getLocalRowCopy(i, indices(), values(), numEntries);
       int GlobalRow[1];
-      GlobalRow[0] = this->A_->getRowMap()->getGlobalElement(i) - 1;
+      GlobalRow[0] = (this->A_->getRowMap()->getGlobalElement(i) - 1) / numDof_;
+      int ir0 = (this->A_->getRowMap()->getGlobalElement(i) - 1) % numDof_;
       auto rnode = bulk.get_entity(
         stk::topology::NODE_RANK, GlobalRow[0]+1);
       int *rowid = stk::mesh::field_data(*realm_->hypreGlobalId_, rnode);
-      GlobalRow[0] = rowid[0];
+      GlobalRow[0] = rowid[0] * numDof_ + ir0;
       for(size_t j = 0; j < numEntries; j++){
-        int gidx = this->A_->getColMap()->getGlobalElement(indices[j]);
+        int gidx = (this->A_->getColMap()->getGlobalElement(indices[j]) - 1) / numDof_ + 1;
+        int ir1 = (this->A_->getColMap()->getGlobalElement(indices[j]) - 1) % numDof_;
           auto node = bulk.get_entity(
             stk::topology::NODE_RANK, gidx);
           if (bulk.is_valid(node)) {
             int* hid = stk::mesh::field_data(*realm_->hypreGlobalId_, node);
-            idlist.push_back(hid[0]);
+            idlist.push_back(hid[0] * numDof_ + ir1);
             valuelist.push_back(values[j]);
           } else {
             if (std::fabs(values[j]) > 1.0e-8)
@@ -189,12 +200,13 @@ void NaluHypre<Scalar,LocalOrdinal,GlobalOrdinal,Node>::apply(const Tpetra::Mult
         auto limax = rhsMap->getMaxLocalIndex();
 
         for (int i=limin; i <= limax; i++) {
-            int ig = rhsMap->getGlobalElement(i);
+            int ig = (rhsMap->getGlobalElement(i) - 1) / numDof_ + 1;
+            int ir = (rhsMap->getGlobalElement(i) - 1) % numDof_;
             auto node = bulk.get_entity(
               stk::topology::NODE_RANK, ig);
-            int* ih = stk::mesh::field_data(*realm_->hypreGlobalId_, node);
+            int ih = *stk::mesh::field_data(*realm_->hypreGlobalId_, node) * numDof_ + ir;
             double value = rhsView[i];
-            HYPRE_IJVectorAddToValues(this->XHypre_, 1, ih, &value);
+            HYPRE_IJVectorAddToValues(this->XHypre_, 1, &ih, &value);
         }
         HYPRE_IJVectorAssemble(this->XHypre_);
         HYPRE_IJVectorGetObject(this->XHypre_, (void**) &this->ParX_);
@@ -216,11 +228,12 @@ void NaluHypre<Scalar,LocalOrdinal,GlobalOrdinal,Node>::apply(const Tpetra::Mult
         auto slnData = Y.getDataNonConst(VecNum);
         double outval;
         for (int i=limin; i <= limax; i++) {
-            int ig = rhsMap->getGlobalElement(i);
+            int ig = (rhsMap->getGlobalElement(i) - 1) / numDof_ + 1;
+            int ir = (rhsMap->getGlobalElement(i) - 1) % numDof_;
             auto node = bulk.get_entity(
               stk::topology::NODE_RANK, ig);
-            int* ih = stk::mesh::field_data(*realm_->hypreGlobalId_, node);
-            HYPRE_IJVectorGetValues(this->YHypre_, 1, ih, &outval);
+            int ih = *stk::mesh::field_data(*realm_->hypreGlobalId_, node) * numDof_ + ir;
+            HYPRE_IJVectorGetValues(this->YHypre_, 1, &ih, &outval);
             slnData[i] = outval;
         }
         // HYPRE_IJVectorPrint(this->YHypre_,"IJ.out.x");

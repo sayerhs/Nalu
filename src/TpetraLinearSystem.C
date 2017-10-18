@@ -960,6 +960,7 @@ TpetraLinearSystem::finalizeLinearSystem()
 
   linearSolver->setupLinearSolver(sln_, ownedMatrix_, ownedRhs_, coords);
   linearSolver->realm_ = &realm_;
+  linearSolver->numDof_ = numDof_;
 }
 
 void

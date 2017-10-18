@@ -87,6 +87,8 @@ class LinearSolver
     LinearSolvers* parent();
     LinearSolvers* linearSolvers_;
     Realm* realm_{nullptr};
+    int numDof_{1};
+
   protected:
   LinearSolverConfig* config_;
   bool recomputePreconditioner_;
