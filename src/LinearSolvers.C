@@ -14,6 +14,7 @@
 #include <Simulation.h>
 
 #include "HypreLinearSolver.h"
+#include "HypreDirectSolver.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -51,7 +52,8 @@ LinearSolvers::load(const YAML::Node & node)
         linearSolverConfig->load(linear_solver_node);
         solverTpetraConfig_[linearSolverConfig->name()] = linearSolverConfig; 
       }
-      else if (solver_type == "hypre") {
+      else if ((solver_type == "tpetra_hypre") ||
+               (solver_type == "hypre")) {
         HypreLinearSolverConfig *linSolverCfg = new HypreLinearSolverConfig();
         linSolverCfg->load(linear_solver_node);
         solverHypreConfig_[linSolverCfg->name()] = linSolverCfg;
@@ -94,7 +96,10 @@ LinearSolvers::create_solver(
     if (hIter != solverHypreConfig_.end()) {
       HypreLinearSolverConfig *cfg = hIter->second;
       foundT = true;
-      theSolver = new HypreLinearSolver(solverName, cfg, this);
+      if (cfg->solver_type() == "tpetra_hypre")
+        theSolver = new HypreLinearSolver(solverName, cfg, this);
+      else
+        theSolver = new HypreDirectSolver(solverName, cfg, this);
     }
   }
   

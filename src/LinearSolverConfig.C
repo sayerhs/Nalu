@@ -39,6 +39,7 @@ TpetraLinearSolverConfig::load(const YAML::Node & node)
   name_ = node["name"].as<std::string>() ;
   method_ = node["method"].as<std::string>() ;
   get_if_present(node, "preconditioner", precond_, std::string("default"));
+  solverType_ = "tpetra";
 
   double tol;
   int max_iterations, kspace, output_level;

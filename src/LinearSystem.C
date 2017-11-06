@@ -14,6 +14,8 @@
 #include <LinearSolver.h>
 #include <master_element/MasterElement.h>
 
+#include "HypreLinearSystem.h"
+
 #include <stk_util/parallel/Parallel.hpp>
 
 #include <stk_util/parallel/ParallelReduce.hpp>
@@ -87,12 +89,17 @@ LinearSystem *LinearSystem::create(Realm& realm, const unsigned numDof, Equation
 {
   switch(solver->getType()) {
   case PT_TPETRA:
-  case PT_HYPRE:
+  case PT_TPETRA_HYPRE:
     return new TpetraLinearSystem(realm,
                                   numDof,
                                   eqSys,
                                   solver);
     break;
+
+  case PT_HYPRE:
+    return new HypreLinearSystem(realm, numDof, eqSys, solver);
+    break;
+
   case PT_END:
   default:
     throw std::logic_error("create lin sys");

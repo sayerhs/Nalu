@@ -56,7 +56,11 @@ public:
   std::string preconditioner_type() const
   { return preconditionerType_;}
 
+  std::string solver_type() const
+  { return solverType_; }
+
 protected:
+  std::string solverType_;
   std::string name_;
   std::string method_;
   std::string precond_;

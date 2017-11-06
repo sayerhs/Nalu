@@ -44,8 +44,9 @@ namespace sierra{
 namespace nalu{
 
   enum PetraType {
-    PT_TPETRA,
-    PT_HYPRE,
+    PT_TPETRA,       //!< Nalu Tpetra interface
+    PT_HYPRE,        //!< Direct HYPRE interface
+    PT_TPETRA_HYPRE, //!< Tpetra to Hypre interface via xSDK
     PT_END
   };
 

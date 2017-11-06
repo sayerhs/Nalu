@@ -37,7 +37,7 @@ public:
     int & iterationCount,
     double & scaledResidual) override;
 
-  virtual PetraType getType() override { return PT_HYPRE; }
+  virtual PetraType getType() override { return PT_TPETRA_HYPRE; }
 
 protected:
   void sync_hypre_id();

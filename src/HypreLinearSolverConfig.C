@@ -32,6 +32,7 @@ HypreLinearSolverConfig::load(const YAML::Node& node)
   name_ = node["name"].as<std::string>() ;
   method_ = node["method"].as<std::string>() ;
   get_if_present(node, "preconditioner", precond_, std::string("none"));
+  solverType_ = node["type"].as<std::string>();
 
   get_if_present(node, "tolerance", tolerance_, tolerance_);
   get_if_present(node, "max_iterations", maxIterations_, maxIterations_);

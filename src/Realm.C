@@ -3688,6 +3688,7 @@ Realm::set_global_id()
 
     hypreILower_ = hypreOffsets[iproc];
     hypreIUpper_ = hypreOffsets[iproc+1] - 1;
+    hypreNumNodes_ = hypreOffsets[nprocs] - 1;
 
     size_t ii=0;
     std::vector<stk::mesh::EntityId> localIDs(num_nodes);
@@ -3700,13 +3701,19 @@ Realm::set_global_id()
     }
     std::sort(localIDs.begin(), localIDs.end());
 
+    // std::ofstream idmapfile;
+    // std::string fname = "stk_hypre_id." + std::to_string(bulkData_->parallel_rank());
+    // idmapfile.open(fname.c_str(), std::ofstream::out);
     size_t nidx = hypreILower_;
     for (auto nid: localIDs) {
       auto node = bulkData_->get_entity(
         stk::topology::NODE_RANK, nid);
       int* hids = stk::mesh::field_data(*hypreGlobalId_, node);
       *hids = nidx++;
+
+      // idmapfile << *hids << "\t" << nid << std::endl;
     }
+    // idmapfile.close();
   }
 }
 

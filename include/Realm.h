@@ -591,6 +591,7 @@ class Realm {
   std::unique_ptr<HypreMeshInfo> hypreMeshInfo_;
   int hypreILower_;
   int hypreIUpper_;
+  int hypreNumNodes_;
   ScalarIntFieldType* hypreGlobalId_;
 };
 
