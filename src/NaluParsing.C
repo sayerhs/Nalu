@@ -875,6 +875,12 @@ namespace YAML
       wallData.wallFunctionApproach_ = node["use_abl_wall_function"].as<bool>();
       wallData.ablWallFunctionApproach_ =
           node["use_abl_wall_function"].as<bool>();
+
+      if (node["sampling_offset_vector"]) {
+        wallData.lesSampleVelocityModel_ = true;
+        wallData.ablTargetPartNames_ = node["target_search_parts"].as<std::vector<std::string>>();
+        wallData.offsetVector_ = node["sampling_offset_vector"].as<std::vector<double>>();
+      }
     }
     if (node["pressure"])
     {

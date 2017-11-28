@@ -58,6 +58,9 @@ public:
   const int maxIteration_;
   const double tolerance_;
 
+  bool useLESSamplingHeight_{false};
+  double lesModelRefHeight_{0.0};
+
   VectorFieldType *velocity_;
   VectorFieldType *bcVelocity_;
   ScalarFieldType *bcHeatFlux_;

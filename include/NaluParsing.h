@@ -193,7 +193,10 @@ struct WallUserData : public UserData {
   Pressure pressure_;
   unsigned gravityComponent_;
   RoughnessHeight z0_;
-  
+
+  std::vector<double> offsetVector_{0.0, 0.0, 0.0};
+  std::vector<std::string> ablTargetPartNames_;
+
   
   bool isAdiabatic_;
   bool heatFluxSpec_;
@@ -206,6 +209,7 @@ struct WallUserData : public UserData {
 
   bool wallFunctionApproach_;
   bool ablWallFunctionApproach_;
+  bool lesSampleVelocityModel_{false};
 
   bool isFsiInterface_;
 

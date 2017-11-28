@@ -165,6 +165,7 @@
 #include <overset/UpdateOversetFringeAlgorithmDriver.h>
 
 #include <user_functions/OneTwoTenVelocityAuxFunction.h>
+#include <wind_energy/BdyLayerVelocitySampler.h>
 
 // deprecated
 #include <ContinuityMassElemSuppAlgDep.h>
@@ -1801,6 +1802,18 @@ MomentumEquationSystem::register_wall_bc(
       if ( it_utau == wallFunctionParamsAlgDriver_->algMap_.end() ) {
         ComputeABLWallFrictionVelocityAlgorithm *theUtauAlg =
           new ComputeABLWallFrictionVelocityAlgorithm(realm_, part, realm_.realmUsesEdges_, grav, z0, referenceTemperature);
+
+        if (userData.lesSampleVelocityModel_) {
+          if (realm_.bdyLayerStats_ == nullptr)
+            throw std::runtime_error("MomentumEQS:: LES Sampling at different height requires boundary_layer_statistics turned on.");
+          double refHeight = 0.0;
+          for (int d=0; d < nDim; d++) {
+            refHeight += userData.offsetVector_[d] * userData.offsetVector_[d];
+          }
+          refHeight = std::sqrt(refHeight);
+          theUtauAlg->useLESSamplingHeight_ = true;
+          theUtauAlg->lesModelRefHeight_ = refHeight;
+        }
         wallFunctionParamsAlgDriver_->algMap_[wfAlgType] = theUtauAlg;
       }
       else {
@@ -1812,14 +1825,30 @@ MomentumEquationSystem::register_wall_bc(
         solverAlgDriver_->solverAlgMap_.find(wfAlgType);
       if ( it_wf == solverAlgDriver_->solverAlgMap_.end() ) {
         SolverAlgorithm *theAlg = NULL;
-        if ( realm_.realmUsesEdges_ ) {
-          theAlg = new AssembleMomentumEdgeABLWallFunctionSolverAlgorithm(realm_, part, this, 
-                                                                          grav, z0, referenceTemperature);
+        BdyLayerVelocitySampler* velocitySampler = nullptr;
+
+        // Handle LES wall modeling approach
+        if (userData.lesSampleVelocityModel_) {
+          velocitySampler = new BdyLayerVelocitySampler(realm_, userData);
+          equationSystems_.preIterAlgDriver_.push_back(velocitySampler);
+
+          NaluEnv::self().naluOutputP0()
+            << "MomentumEQS:: Activated velocity sampling from user-defined height for LES Wall model" << std::endl;
         }
-        else {
-          theAlg = new AssembleMomentumElemABLWallFunctionSolverAlgorithm(realm_, part, this, realm_.realmUsesEdges_, 
-                                                                          grav, z0, referenceTemperature);     
+
+        if (realm_.realmUsesEdges_) {
+          theAlg = new AssembleMomentumEdgeABLWallFunctionSolverAlgorithm(
+            realm_, part, this, grav, z0, referenceTemperature, velocitySampler);
+        } else {
+          theAlg = new AssembleMomentumElemABLWallFunctionSolverAlgorithm(
+            realm_, part, this, realm_.realmUsesEdges_, grav, z0,
+            referenceTemperature);
         }
+
+        if (userData.lesSampleVelocityModel_) {
+          velocitySampler->set_wall_func_algorithm(theAlg);
+        }
+
         solverAlgDriver_->solverAlgMap_[wfAlgType] = theAlg;
       }
       else {

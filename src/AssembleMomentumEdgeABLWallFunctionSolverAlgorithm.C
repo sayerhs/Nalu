@@ -15,6 +15,7 @@
 #include <Realm.h>
 #include <master_element/MasterElement.h>
 #include <ABLProfileFunction.h>
+#include "wind_energy/BdyLayerVelocitySampler.h"
 
 // stk_mesh/base/fem
 #include <stk_mesh/base/BulkData.hpp>
@@ -45,7 +46,8 @@ AssembleMomentumEdgeABLWallFunctionSolverAlgorithm::AssembleMomentumEdgeABLWallF
   EquationSystem *eqSystem,
   const double &gravity,
   const double &z0,
-  const double &Tref)
+  const double &Tref,
+  BdyLayerVelocitySampler* velocitySampler)
   : SolverAlgorithm(realm, part, eqSystem),
     z0_(z0), 
     Tref_(Tref), 
@@ -55,7 +57,8 @@ AssembleMomentumEdgeABLWallFunctionSolverAlgorithm::AssembleMomentumEdgeABLWallF
     beta_h_(16.0),
     gamma_m_(5.0),
     gamma_h_(5.0),
-    kappa_(realm.get_turb_model_constant(TM_kappa))
+    kappa_(realm.get_turb_model_constant(TM_kappa)),
+    velocitySampler_(velocitySampler)
 {
   // save off fields
   stk::mesh::MetaData & meta_data = realm_.meta_data();
@@ -106,6 +109,7 @@ AssembleMomentumEdgeABLWallFunctionSolverAlgorithm::execute()
   std::vector<double> uBip(nDim);
   std::vector<double> uBcBip(nDim);
   std::vector<double> unitNormal(nDim);
+  std::vector<double> velTemp(nDim);
 
   // pointers to fixed values
   double *p_uBip = &uBip[0];
@@ -191,6 +195,11 @@ AssembleMomentumEdgeABLWallFunctionSolverAlgorithm::execute()
         double heatFluxBip = *stk::mesh::field_data(*bcHeatFlux_, nodeR);
         double rhoBip =  *stk::mesh::field_data(*density_, nodeR);
         double CpBip =  *stk::mesh::field_data(*specificHeat_, nodeR);
+
+        // if (velocitySampler_ != nullptr) {
+        //   velocitySampler_->get_velocity(nodeR, velTemp.data());
+        //   std::cerr << velTemp[0] << "\t" << velTemp[1] << "\t" << velTemp[2] << std::endl;
+        // }
 
         for ( int j = 0; j < nDim; ++j ) {
           const double *uNp1 = stk::mesh::field_data(velocityNp1, nodeR);
