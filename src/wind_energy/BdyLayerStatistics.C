@@ -77,6 +77,7 @@ BdyLayerStatistics::load(const YAML::Node& node)
   get_if_present(node, "time_hist_output_frequency",
                  timeHistOutFrequency_, timeHistOutFrequency_);
   get_if_present(node, "stats_output_file", bdyStatsFile_, bdyStatsFile_);
+  get_if_present(node, "process_utau_statistics", hasUTau_, hasUTau_);
 }
 
 void
@@ -580,6 +581,11 @@ BdyLayerStatistics::prepare_nc_file()
     ncVarIDs_["temperature_variance"] = varid;
   }
 
+  if (hasUTau_) {
+    ierr = nc_def_var(ncid, "utau", NC_DOUBLE, 1, &recDim, &varid);
+    ncVarIDs_["utau"] = varid;
+  }
+
   //! Indicate that we are done defining variables, ready to write data
   ierr = nc_enddef(ncid);
   check_nc_error(ierr, "nc_enddef");
@@ -648,6 +654,10 @@ BdyLayerStatistics::write_time_hist_file()
     ierr = nc_put_vara_double(
       ncid, ncVarIDs_["temperature_variance"], start1.data(), count1.data(),
       thetaVarAvg_.data());
+  }
+
+  if (hasUTau_) {
+    ierr = nc_put_vara_double(ncid, ncVarIDs_["utau"], &tCount, &count0, &uTauAvg_);
   }
 
   ierr = nc_close(ncid);

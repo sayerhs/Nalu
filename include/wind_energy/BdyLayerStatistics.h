@@ -74,6 +74,9 @@ public:
    */
   void time_averaged_velocity(double, double*);
 
+  void set_utau_avg(double utau)
+  { uTauAvg_ = utau; }
+
 private:
   BdyLayerStatistics() = delete;
   BdyLayerStatistics(const BdyLayerStatistics&) = delete;
@@ -166,6 +169,9 @@ private:
   //! Name of the NetCDF file where statistics are output
   std::string bdyStatsFile_{"abl_statistics.nc"};
 
+  //! Friction velocity average
+  double uTauAvg_{0.0};
+
   //! Dimensionality of the mesh
   int nDim_{3};
 
@@ -182,6 +188,9 @@ private:
 
   //! Calculate temperature statistics
   bool calcTemperatureStats_{true};
+
+  //! Flag indicating whether uTau history is processed
+  bool hasUTau_{true};
 
   //! Flag indicating whether initialization must be performed
   bool doInit_{true};
