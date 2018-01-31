@@ -292,15 +292,20 @@ ComputeABLWallFrictionVelocityAlgorithm::execute()
 	}
 
         // form unit normal and determine yp (approximated by 1/4 distance along edge)
-        double ypBip = 0.0;
-        for ( int j = 0; j < nDim; ++j ) {
-          const double nj = areaVec[offSetAveraVec+j]/aMag;
-          const double ej = 0.25*(coordR[j] - coordL[j]);
-          ypBip += nj*ej*nj*ej;
-          p_unitNormal[j] = nj;
-        }
+      double ypBip = 0.0;
+      for ( int j = 0; j < nDim; ++j ) {
+        const double nj = areaVec[offSetAveraVec+j]/aMag;
+        const double ej = 0.25*(coordR[j] - coordL[j]);
+        ypBip += nj*ej*nj*ej;
+        p_unitNormal[j] = nj;
+      }
+      if (useLESSamplingHeight_) {
+        ypBip = lesModelRefHeight_;
+        wallNormalDistanceBip[ip] = ypBip;
+      } else {
         ypBip = std::sqrt(ypBip);
         wallNormalDistanceBip[ip] = ypBip;
+      }
 
         // assemble to nodal quantities
         double * assembledWallArea = stk::mesh::field_data(*assembledWallArea_, nodeR );
@@ -308,6 +313,10 @@ ComputeABLWallFrictionVelocityAlgorithm::execute()
 
         *assembledWallArea += aMag;
         *assembledWallNormalDistance += aMag*ypBip;
+
+        if (useLESSamplingHeight_) {
+          realm_.bdyLayerStats_(ypBip, p_uBip);
+        }
 
         // determine tangential velocity
         double uTangential = 0.0;

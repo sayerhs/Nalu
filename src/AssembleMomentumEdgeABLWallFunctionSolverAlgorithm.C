@@ -208,6 +208,10 @@ AssembleMomentumEdgeABLWallFunctionSolverAlgorithm::execute()
           p_uBcBip[j] = uBc[j];
         }
 
+        if (velocitySampler_ != nullptr) {
+          velocitySampler_->get_velocity(nodeR, p_uBip);
+        }
+
         // form unit normal
         for ( int j = 0; j < nDim; ++j ) {
           p_unitNormal[j] = areaVec[offSetAveraVec+j]/aMag;
@@ -268,12 +272,12 @@ AssembleMomentumEdgeABLWallFunctionSolverAlgorithm::execute()
               const double om_nini = 1.0 - ninj;
               uiTan += om_nini*p_uBip[j];
               uiBcTan += om_nini*p_uBcBip[j];
-              p_lhs[rowR+localFaceNode*nDim+i] += lambda*om_nini;
+              // p_lhs[rowR+localFaceNode*nDim+i] += lambda*om_nini;
             }
             else {
               uiTan -= ninj*p_uBip[j];
               uiBcTan -= ninj*p_uBcBip[j];
-              p_lhs[rowR+localFaceNode*nDim+j] -= lambda*ninj;
+              // p_lhs[rowR+localFaceNode*nDim+j] -= lambda*ninj;
             }
           }
           p_rhs[indexR] -= lambda*(uiTan-uiBcTan);
