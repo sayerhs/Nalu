@@ -108,6 +108,7 @@ BdyLayerVelocitySampler::determine_node_elem_mapping()
       bulk.destroy_ghosting(*samplerElemGhosting_);
     }
   }
+  bulk.modification_end();
 
   determine_bounding_spheres();
 

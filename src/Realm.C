@@ -3680,6 +3680,9 @@ Realm::initial_work()
     turbulenceAveragingPostProcessing_->execute();
   }
 
+  if (bdyLayerStats_ != nullptr)
+    bdyLayerStats_->execute();
+
   if ( solutionOptions_->meshMotion_ )
     process_mesh_motion();
   equationSystems_.initial_work();

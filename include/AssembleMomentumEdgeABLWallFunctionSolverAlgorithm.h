@@ -35,7 +35,7 @@ public:
     const double &gravity,
     const double &z0,
     const double &Tref,
-    BdyLayerVelocitySampler* velocitySampler);
+    BdyLayerVelocitySampler* velocitySampler = nullptr);
   virtual ~AssembleMomentumEdgeABLWallFunctionSolverAlgorithm() {}
   virtual void initialize_connectivity();
   virtual void execute();

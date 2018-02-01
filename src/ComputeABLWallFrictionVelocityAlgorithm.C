@@ -315,7 +315,7 @@ ComputeABLWallFrictionVelocityAlgorithm::execute()
         *assembledWallNormalDistance += aMag*ypBip;
 
         if (useLESSamplingHeight_) {
-          realm_.bdyLayerStats_(ypBip, p_uBip);
+          realm_.bdyLayerStats_->velocity(ypBip, p_uBip);
         }
 
         // determine tangential velocity
