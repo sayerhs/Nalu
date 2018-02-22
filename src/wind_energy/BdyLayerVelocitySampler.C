@@ -146,8 +146,8 @@ BdyLayerVelocitySampler::determine_bounding_spheres()
 
       // Create STK search data structures and add this point to the search vector
       SearchKey key(nodeID, iproc);
-      BoundingPoint bPoint(searchPt, key);
-      boundingPoints_.push_back(bPoint);
+      BoundingSphere bSphere(Sphere(searchPt, 1.0), key);
+      boundingPoints_.push_back(bSphere);
     }
   }
 }
@@ -332,6 +332,9 @@ BdyLayerVelocitySampler::finalize_search(
       }
     }
   }
+
+  if (targetElemMap_.size() != boundingPoints_.size())
+    throw std::runtime_error("BdyLayerVelocitySampler:: Cannot find bounding elements for all wall nodes.");
 }
 
 }  // nalu

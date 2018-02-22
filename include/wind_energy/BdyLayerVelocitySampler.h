@@ -129,7 +129,7 @@ private:
   stk::mesh::Ghosting* samplerElemGhosting_{nullptr};
 
   //! Target nodes whose bounding element must be determined
-  std::vector<BoundingPoint> boundingPoints_;
+  std::vector<BoundingSphere> boundingPoints_;
 
   //! List of candidate element bounding boxes where search is performed
   std::vector<BoundingBox> boundingBoxes_;
