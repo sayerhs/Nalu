@@ -111,7 +111,7 @@ RectilinearMeshHeightAlg::calc_height_levels(
   heightVec[nHeights] = heightVec[nHeights-1] + 1.0;
 
   // Perturb the z-coordinate value when comparing against available height levels
-  const double eps = std::numeric_limits<double>::epsilon() * 100.0;
+  const double eps = 1.0e-6;
   // Populate indexing so that all averaging can use this index for lookup
   for (auto b: bkts) {
     for (size_t in = 0; in < b->size(); in++) {
