@@ -156,15 +156,18 @@ BdyLayerStatistics::initialize()
   velAvg_.resize(nHeights * nDim_);
   velBarAvg_.resize(nHeights * nDim_);
   uiujAvg_.resize(nHeights * nDim_ * 2);
-  sfsAvg_.resize(nHeights * nDim_ * 2);
+  uiujBarAvg_.resize(nHeights * nDim_ * 2);
+  sfsBarAvg_.resize(nHeights * nDim_ * 2);
 
 
   if (calcTemperatureStats_) {
     thetaAvg_.resize(nHeights);
     thetaBarAvg_.resize(nHeights);
-    thetaSFSAvg_.resize(nHeights * nDim_);
     thetaUjAvg_.resize(nHeights * nDim_);
+    thetaSFSBarAvg_.resize(nHeights * nDim_);
+    thetaUjBarAvg_.resize(nHeights * nDim_);
     thetaVarAvg_.resize(nHeights);
+    thetaBarVarAvg_.resize(nHeights);
   }
 
   // Time history output in a NetCDF file
@@ -277,14 +280,16 @@ BdyLayerStatistics::compute_velocity_stats()
   std::vector<double> velMean(nHeights * nDim_, 0.0);
   std::vector<double> velBarMean(nHeights * nDim_, 0.0);
   std::vector<double> uiujMean(nHeights * nDim_ * 2, 0.0);
-  std::vector<double> sfsMean(nHeights * nDim_ * 2, 0.0);
+  std::vector<double> uiujBarMean(nHeights * nDim_ * 2, 0.0);
+  std::vector<double> sfsBarMean(nHeights * nDim_ * 2, 0.0);
   std::vector<double> rhoMean(nHeights, 0.0);
 
   // Global reduction arrays
   std::vector<double> gVelMean(nHeights * nDim_, 0.0);
   std::vector<double> gVelBarMean(nHeights * nDim_, 0.0);
+  std::vector<double> gUiujBarMean(nHeights * nDim_ * 2, 0.0);
+  std::vector<double> gSfsBarMean(nHeights * nDim_ * 2, 0.0);
   std::vector<double> gUiujMean(nHeights * nDim_ * 2, 0.0);
-  std::vector<double> gSfsMean(nHeights * nDim_ * 2, 0.0);
   std::vector<double> gRhoMean(nHeights);
 
   // Sum up all the local contributions
@@ -303,8 +308,8 @@ BdyLayerStatistics::compute_velocity_stats()
       rhoMean[ih] += rho * dVol;
 
       // Velocity calculations
+      double* vel = stk::mesh::field_data(*velocity, node);
       {
-        double* vel = stk::mesh::field_data(*velocity, node);
         double* velA = stk::mesh::field_data(*velTimeAvg, node);
 
         for (int d=0; d < nDim_; d++) {
@@ -316,12 +321,20 @@ BdyLayerStatistics::compute_velocity_stats()
       // Stress calculations
       offset *= 2;
       {
+        int idx = 0;
+        for (int i=0; i < nDim_; i++) {
+          for (int j=i; j < nDim_; j++) {
+            uiujMean[offset + idx] += vel[i] * vel[j] * rho * dVol;
+            idx++;
+          }
+        }
+
         double* sfs = static_cast<double*>(stk::mesh::field_data(*sfsField, node));
         double* uiuj = static_cast<double*>(stk::mesh::field_data(*resStress, node));
 
         for (int i=0; i < nDim_ * 2; i++) {
-            sfsMean[offset + i] += sfs[i] * dVol;
-            uiujMean[offset + i] += uiuj[i] * dVol;
+            sfsBarMean[offset + i] += sfs[i] * dVol;
+            uiujBarMean[offset + i] += uiuj[i] * dVol;
         }
       }
     }
@@ -330,7 +343,8 @@ BdyLayerStatistics::compute_velocity_stats()
   // Global summation
   stk::all_reduce_sum(bulk.parallel(), velMean.data(), gVelMean.data(), nHeights*nDim_);
   stk::all_reduce_sum(bulk.parallel(), velBarMean.data(), gVelBarMean.data(), nHeights*nDim_);
-  stk::all_reduce_sum(bulk.parallel(), sfsMean.data(), gSfsMean.data(), nHeights*nDim_*2);
+  stk::all_reduce_sum(bulk.parallel(), sfsBarMean.data(), gSfsBarMean.data(), nHeights*nDim_*2);
+  stk::all_reduce_sum(bulk.parallel(), uiujBarMean.data(), gUiujBarMean.data(), nHeights*nDim_*2);
   stk::all_reduce_sum(bulk.parallel(), uiujMean.data(), gUiujMean.data(), nHeights*nDim_*2);
   stk::all_reduce_sum(bulk.parallel(), vol.data(), gVol.data(), nHeights);
   stk::all_reduce_sum(bulk.parallel(), rhoMean.data(), gRhoMean.data(), nHeights);
@@ -346,7 +360,8 @@ BdyLayerStatistics::compute_velocity_stats()
 
     offset *= 2;
     for (int i=0; i < nDim_ * 2; i++) {
-      sfsAvg_[offset + i] = gSfsMean[offset + i] / gRhoMean[ih];
+      sfsBarAvg_[offset + i] = gSfsBarMean[offset + i] / gRhoMean[ih];
+      uiujBarAvg_[offset + i] = gUiujBarMean[offset + i] / gRhoMean[ih];
       uiujAvg_[offset + i] = gUiujMean[offset + i] / gRhoMean[ih];
     }
 
@@ -354,6 +369,21 @@ BdyLayerStatistics::compute_velocity_stats()
     sumVol_[ih] = gVol[ih];
     rhoAvg_[ih] = gRhoMean[ih] / gVol[ih];
   }
+
+  // // Compute prime quantities
+  // for (size_t ih=0; ih < nHeights; ih++) {
+  //   int offset = ih * nDim_;
+  //   int offset1 = offset * 2;
+  //   int idx = 0;
+
+  //   for (int i=0; i < nDim_; i++) {
+  //     for (int j=i; j < nDim_; j++) {
+  //       uiujAvg_[offset1 + idx] -= velAvg_[offset + i] * velAvg_[offset + j];
+  //       uiujBarAvg_[offset1 + idx] -= velBarAvg_[offset + i] * velBarAvg_[offset + j];
+  //       idx++;
+  //     }
+  //   }
+  // }
 }
 
 void
@@ -368,6 +398,10 @@ BdyLayerStatistics::compute_temperature_stats()
   const auto bkts = bulk.get_buckets(stk::topology::NODE_RANK, sel);
   const size_t nHeights = heights_.size();
 
+  ScalarFieldType* density = meta.get_field<ScalarFieldType>(
+    stk::topology::NODE_RANK, "density");
+  VectorFieldType* velocity = meta.get_field<VectorFieldType>(
+    stk::topology::NODE_RANK, "velocity");
   ScalarFieldType* theta = meta.get_field<ScalarFieldType>(
     stk::topology::NODE_RANK, "temperature");
   ScalarFieldType* thetaA = meta.get_field<ScalarFieldType>(
@@ -385,12 +419,16 @@ BdyLayerStatistics::compute_temperature_stats()
   std::vector<double> tAMean(nHeights, 0.0);
   std::vector<double> gTMean(nHeights, 0.0);
   std::vector<double> gTAMean(nHeights, 0.0);
-  std::vector<double> tSFSMean(nHeights * nDim_, 0.0);
-  std::vector<double> tUjMean(nHeights * nDim_, 0.0);
-  std::vector<double> gTSFSMean(nHeights * nDim_, 0.0);
-  std::vector<double> gTUjMean(nHeights * nDim_, 0.0);
+  std::vector<double> tujMean(nHeights * nDim_, 0.0);
+  std::vector<double> gTujMean(nHeights * nDim_, 0.0);
+  std::vector<double> tSfsBarMean(nHeights * nDim_, 0.0);
+  std::vector<double> tujBarMean(nHeights * nDim_, 0.0);
+  std::vector<double> gTSfsBarMean(nHeights * nDim_, 0.0);
+  std::vector<double> gTujBarMean(nHeights * nDim_, 0.0);
   std::vector<double> tVarMean(nHeights, 0.0);
+  std::vector<double> tAVarMean(nHeights, 0.0);
   std::vector<double> gTVarMean(nHeights, 0.0);
+  std::vector<double> gTAVarMean(nHeights, 0.0);
 
   // Sum up all local contributions
   for (auto b: bkts) {
@@ -399,22 +437,27 @@ BdyLayerStatistics::compute_temperature_stats()
       int ih = *stk::mesh::field_data(*heightIndex_, node);
 
       // Temperature calculations
+      double* rho = stk::mesh::field_data(*density, node);
       double* temp = stk::mesh::field_data(*theta, node);
       double* tempA = stk::mesh::field_data(*thetaA, node);
       double* dVol = stk::mesh::field_data(*dualVol, node);
       double* tVar = static_cast<double*>(stk::mesh::field_data(*thetaVar, node));
 
-      tMean[ih] += temp[0] * dVol[0];
+      tMean[ih] += rho[0] * temp[0] * dVol[0];
       tAMean[ih] += tempA[0] * dVol[0];
-      tVarMean[ih] += tVar[0] * dVol[0];
+      tVarMean[ih] += rho[0] * temp[0] * temp[0] * dVol[0];
+      tAVarMean[ih] += tVar[0] * dVol[0];
 
+      double* vel = static_cast<double*>(stk::mesh::field_data(*velocity, node));
       double* tsfs = static_cast<double*>(stk::mesh::field_data(*thetaSFS, node));
       double* tuj = static_cast<double*>(stk::mesh::field_data(*thetaUj, node));
 
       auto offset = ih * nDim_;
       for (int d=0; d < nDim_; d++) {
-        tSFSMean[offset + d] += tsfs[d] * dVol[0];
-        tUjMean[offset + d] += tuj[d] * dVol[0];
+        tSfsBarMean[offset + d] += tsfs[d] * dVol[0];
+        tujBarMean[offset + d] += tuj[d] * dVol[0];
+
+        tujMean[offset + d] += rho[0] * temp[0] * vel[d] * dVol[0];
       }
     }
   }
@@ -422,23 +465,37 @@ BdyLayerStatistics::compute_temperature_stats()
   // Global summation
   stk::all_reduce_sum(bulk.parallel(), tMean.data(), gTMean.data(), nHeights);
   stk::all_reduce_sum(bulk.parallel(), tAMean.data(), gTAMean.data(), nHeights);
-  stk::all_reduce_sum(bulk.parallel(), tSFSMean.data(), gTSFSMean.data(), nHeights * nDim_);
-  stk::all_reduce_sum(bulk.parallel(), tUjMean.data(), gTUjMean.data(), nHeights * nDim_);
+  stk::all_reduce_sum(bulk.parallel(), tSfsBarMean.data(), gTSfsBarMean.data(), nHeights * nDim_);
+  stk::all_reduce_sum(bulk.parallel(), tujMean.data(), gTujMean.data(), nHeights * nDim_);
+  stk::all_reduce_sum(bulk.parallel(), tujBarMean.data(), gTujBarMean.data(), nHeights * nDim_);
   stk::all_reduce_sum(bulk.parallel(), tVarMean.data(), gTVarMean.data(), nHeights);
+  stk::all_reduce_sum(bulk.parallel(), tAVarMean.data(), gTAVarMean.data(), nHeights);
 
   // Compute averages
   for (size_t ih=0; ih < nHeights; ih++) {
     double denom = (rhoAvg_[ih] * sumVol_[ih]);
-    thetaAvg_[ih] = gTMean[ih] / sumVol_[ih];
+    thetaAvg_[ih] = gTMean[ih] / denom;
     thetaBarAvg_[ih] = gTAMean[ih] / denom;
     thetaVarAvg_[ih] = gTVarMean[ih] / denom;
+    thetaBarVarAvg_[ih] = gTAVarMean[ih] / denom;
 
     int offset = ih * nDim_;
     for (int d=0; d < nDim_; d++) {
-      thetaSFSAvg_[offset + d] = gTSFSMean[offset + d] / denom;
-      thetaUjAvg_[offset + d] = gTUjMean[offset + d] / denom;
+      thetaSFSBarAvg_[offset + d] = gTSfsBarMean[offset + d] / denom;
+      thetaUjBarAvg_[offset + d] = gTujBarMean[offset + d] / denom;
+      thetaUjAvg_[offset + d] = gTujMean[offset + d] / denom;
     }
   }
+
+  // for (size_t ih=0; ih < nHeights; ih++) {
+  //   int offset = ih * nDim_;
+  //   thetaVarAvg_[ih] -= thetaAvg_[ih] * thetaAvg_[ih];
+  //   thetaBarVarAvg_[ih] -= thetaBarAvg_[ih] * thetaBarAvg_[ih];
+  //   for (int d=0; d < nDim_; d++) {
+  //     thetaUjAvg_[offset + d] -= thetaAvg_[ih] * velAvg_[offset + d];
+  //     thetaUjBarAvg_[offset + d] -= thetaBarAvg_[ih] * velBarAvg_[offset + d];
+  //   }
+  // }
 }
 
 void
@@ -485,7 +542,7 @@ BdyLayerStatistics::output_velocity_averages()
     sfsfile << heights_[ih];
     uiujfile << heights_[ih];
     for (int i=0; i < nDim_ * 2; i++) {
-      sfsfile << " " << sfsAvg_[offset + i];
+      sfsfile << " " << sfsBarAvg_[offset + i];
       uiujfile << " " << uiujAvg_[offset + i];
     }
     sfsfile << std::endl;
@@ -511,14 +568,15 @@ BdyLayerStatistics::output_temperature_averages()
 
   std::string curTime = std::to_string(realm_.get_current_time());
   tempfile << "# Time = " << curTime << std::endl;
-  tempfile << "# Height, <T>, T" << std::endl;
+  tempfile << "# Height, <T>, T, T' sqr" << std::endl;
 
   const size_t nHeights = heights_.size();
   for (size_t ih=0; ih < nHeights; ih++) {
     // temperature outputs
     tempfile << heights_[ih] << " "
              << thetaBarAvg_[ih] << " "
-             << thetaAvg_[ih] << std::endl;
+             << thetaAvg_[ih] << " "
+             << thetaVarAvg_[ih] << std::endl;
   }
 
   tempfile.close();
@@ -561,24 +619,32 @@ BdyLayerStatistics::prepare_nc_file()
   ncVarIDs_["density"] = varid;
   ierr = nc_def_var(ncid, "velocity", NC_DOUBLE, 3, vecDims.data(), &varid);
   ncVarIDs_["velocity"] = varid;
-  ierr = nc_def_var(ncid, "velocity_time_avg", NC_DOUBLE, 3, vecDims.data(), &varid);
-  ncVarIDs_["velocity_time_avg"] = varid;
+  ierr = nc_def_var(ncid, "velocity_tavg", NC_DOUBLE, 3, vecDims.data(), &varid);
+  ncVarIDs_["velocity_tavg"] = varid;
   ierr = nc_def_var(ncid, "sfs_stress", NC_DOUBLE, 3, stDims.data(), &varid);
   ncVarIDs_["sfs_stress"] = varid;
   ierr = nc_def_var(ncid, "resolved_stress", NC_DOUBLE, 3, stDims.data(), &varid);
   ncVarIDs_["resolved_stress"] = varid;
+  ierr = nc_def_var(ncid, "sfs_stress_tavg", NC_DOUBLE, 3, stDims.data(), &varid);
+  ncVarIDs_["sfs_stress_tavg"] = varid;
+  ierr = nc_def_var(ncid, "resolved_stress_tavg", NC_DOUBLE, 3, stDims.data(), &varid);
+  ncVarIDs_["resolved_stress_tavg"] = varid;
 
   if (calcTemperatureStats_) {
     ierr = nc_def_var(ncid, "temperature", NC_DOUBLE, 2, twoDims.data(), &varid);
     ncVarIDs_["temperature"] = varid;
-    ierr = nc_def_var(ncid, "temperature_time_avg", NC_DOUBLE, 2, twoDims.data(), &varid);
-    ncVarIDs_["temperature_time_avg"] = varid;
-    ierr = nc_def_var(ncid, "temperature_sfs_flux", NC_DOUBLE, 3, vecDims.data(), &varid);
-    ncVarIDs_["temperature_sfs_flux"] = varid;
+    ierr = nc_def_var(ncid, "temperature_tavg", NC_DOUBLE, 2, twoDims.data(), &varid);
+    ncVarIDs_["temperature_tavg"] = varid;
+    ierr = nc_def_var(ncid, "temperature_sfs_flux_tavg", NC_DOUBLE, 3, vecDims.data(), &varid);
+    ncVarIDs_["temperature_sfs_flux_tavg"] = varid;
     ierr = nc_def_var(ncid, "temperature_resolved_flux", NC_DOUBLE, 3, vecDims.data(), &varid);
     ncVarIDs_["temperature_resolved_flux"] = varid;
     ierr = nc_def_var(ncid, "temperature_variance", NC_DOUBLE, 2, twoDims.data(), &varid);
     ncVarIDs_["temperature_variance"] = varid;
+    ierr = nc_def_var(ncid, "temperature_resolved_flux_tavg", NC_DOUBLE, 3, vecDims.data(), &varid);
+    ncVarIDs_["temperature_resolved_flux_tavg"] = varid;
+    ierr = nc_def_var(ncid, "temperature_variance_tavg", NC_DOUBLE, 2, twoDims.data(), &varid);
+    ncVarIDs_["temperature_variance_tavg"] = varid;
   }
 
   if (hasUTau_) {
@@ -594,12 +660,15 @@ BdyLayerStatistics::prepare_nc_file()
   ierr = nc_put_var_double(ncid, ncVarIDs_["heights"], heights_.data());
   ierr = nc_close(ncid);
   check_nc_error(ierr, "nc_close");
+
+  // Initialze the starting timestep
+  startStep_ = realm_.get_time_step_count();
 }
 
 void
 BdyLayerStatistics::write_time_hist_file()
 {
-  const int tStep = realm_.get_time_step_count();
+  const int tStep = realm_.get_time_step_count() - startStep_;
   const int iproc = realm_.bulk_data().parallel_rank();
 
   // Only output data if at the desired timestep
@@ -608,7 +677,7 @@ BdyLayerStatistics::write_time_hist_file()
   int ncid, ierr;
   const size_t nHeights = heights_.size();
   const size_t nDim = static_cast<size_t>(nDim_);
-  const size_t tCount = tStep / timeHistOutFrequency_ - 1;
+  const size_t tCount = tStep / timeHistOutFrequency_;
   const double curTime = realm_.get_current_time();
 
   ierr = nc_open(bdyStatsFile_.c_str(), NC_WRITE, &ncid);
@@ -629,31 +698,40 @@ BdyLayerStatistics::write_time_hist_file()
   ierr = nc_put_vara_double(
     ncid, ncVarIDs_["velocity"], start2.data(), count2.data(), velAvg_.data());
   ierr = nc_put_vara_double(
-    ncid, ncVarIDs_["velocity_time_avg"], start2.data(), count2.data(),
-    velBarAvg_.data());
-  ierr = nc_put_vara_double(
-    ncid, ncVarIDs_["sfs_stress"], start3.data(), count3.data(),
-    sfsAvg_.data());
-  ierr = nc_put_vara_double(
     ncid, ncVarIDs_["resolved_stress"], start3.data(), count3.data(),
     uiujAvg_.data());
+  ierr = nc_put_vara_double(
+    ncid, ncVarIDs_["velocity_tavg"], start2.data(), count2.data(),
+    velBarAvg_.data());
+  ierr = nc_put_vara_double(
+    ncid, ncVarIDs_["sfs_stress_tavg"], start3.data(), count3.data(),
+    sfsBarAvg_.data());
+  ierr = nc_put_vara_double(
+    ncid, ncVarIDs_["resolved_stress_tavg"], start3.data(), count3.data(),
+    uiujBarAvg_.data());
 
   if (calcTemperatureStats_) {
     ierr = nc_put_vara_double(
       ncid, ncVarIDs_["temperature"], start1.data(), count1.data(),
       thetaAvg_.data());
     ierr = nc_put_vara_double(
-      ncid, ncVarIDs_["temperature_time_avg"], start1.data(), count1.data(),
-      thetaBarAvg_.data());
-    ierr = nc_put_vara_double(
-      ncid, ncVarIDs_["temperature_sfs_flux"], start2.data(), count2.data(),
-      thetaSFSAvg_.data());
-    ierr = nc_put_vara_double(
       ncid, ncVarIDs_["temperature_resolved_flux"], start2.data(),
       count2.data(), thetaUjAvg_.data());
     ierr = nc_put_vara_double(
       ncid, ncVarIDs_["temperature_variance"], start1.data(), count1.data(),
       thetaVarAvg_.data());
+    ierr = nc_put_vara_double(
+      ncid, ncVarIDs_["temperature_tavg"], start1.data(), count1.data(),
+      thetaBarAvg_.data());
+    ierr = nc_put_vara_double(
+      ncid, ncVarIDs_["temperature_sfs_flux_tavg"], start2.data(), count2.data(),
+      thetaSFSBarAvg_.data());
+    ierr = nc_put_vara_double(
+      ncid, ncVarIDs_["temperature_resolved_flux_tavg"], start2.data(),
+      count2.data(), thetaUjBarAvg_.data());
+    ierr = nc_put_vara_double(
+      ncid, ncVarIDs_["temperature_variance_tavg"], start1.data(), count1.data(),
+      thetaBarVarAvg_.data());
   }
 
   if (hasUTau_) {

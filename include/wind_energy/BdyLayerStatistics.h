@@ -128,11 +128,17 @@ private:
   //! Spatially and temporally averaged velocity at desired heights [nHeights, nDim]
   std::vector<double> velBarAvg_;
 
-  //! Spatially and temporally averaged resolved stress field at desired heights [nHeights, nDim * 2]
+  //! Spatially averaged resolved stress [nHeights, nDim]
   std::vector<double> uiujAvg_;
 
-  //! Spatially and temporally averaged SFS field at desired heights [nHeights, nDim * 2]
+  //! Spatially averaged sfs stress [nHeights, nDim]
   std::vector<double> sfsAvg_;
+
+  //! Spatially and temporally averaged resolved stress field at desired heights [nHeights, nDim * 2]
+  std::vector<double> uiujBarAvg_;
+
+  //! Spatially and temporally averaged SFS field at desired heights [nHeights, nDim * 2]
+  std::vector<double> sfsBarAvg_;
 
   //! Spatially averaged instantaneous temperature field [nHeights]
   std::vector<double> thetaAvg_;
@@ -140,13 +146,22 @@ private:
   //! Spatially and temporally averaged temperature field [nHeights]
   std::vector<double> thetaBarAvg_;
 
-  //! Spatially and temporally averaged Temperature SFS field
+  //! Spatially averaged instantaneous temperature SFS field
   std::vector<double> thetaSFSAvg_;
 
+  //! Spatially averaged instantaneous temperature variance
   std::vector<double> thetaUjAvg_;
 
-  //! Spatially and temporally averaged temperature variance [nHeights]
+  //! Spatially and temporally averaged Temperature SFS field
+  std::vector<double> thetaSFSBarAvg_;
+
+  std::vector<double> thetaUjBarAvg_;
+
+  //! Spatially averaged temperature variance [nHeights]
   std::vector<double> thetaVarAvg_;
+
+  //! Spatially and temporally averaged temperature variance [nHeights]
+  std::vector<double> thetaBarVarAvg_;
 
   //! Total nodal volume at each height level used for volumetric averaging
   std::vector<double> sumVol_;
@@ -180,6 +195,9 @@ private:
 
   //! Output frequency for time histories
   int timeHistOutFrequency_{10};
+
+  //! Starting time step (offset for NetCDF with restarts)
+  int startStep_{0};
 
   //! Height index field
   ScalarIntFieldType* heightIndex_;
