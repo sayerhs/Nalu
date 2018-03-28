@@ -370,20 +370,20 @@ BdyLayerStatistics::compute_velocity_stats()
     rhoAvg_[ih] = gRhoMean[ih] / gVol[ih];
   }
 
-  // // Compute prime quantities
-  // for (size_t ih=0; ih < nHeights; ih++) {
-  //   int offset = ih * nDim_;
-  //   int offset1 = offset * 2;
-  //   int idx = 0;
+  // Compute prime quantities
+  for (size_t ih=0; ih < nHeights; ih++) {
+    int offset = ih * nDim_;
+    int offset1 = offset * 2;
+    int idx = 0;
 
-  //   for (int i=0; i < nDim_; i++) {
-  //     for (int j=i; j < nDim_; j++) {
-  //       uiujAvg_[offset1 + idx] -= velAvg_[offset + i] * velAvg_[offset + j];
-  //       uiujBarAvg_[offset1 + idx] -= velBarAvg_[offset + i] * velBarAvg_[offset + j];
-  //       idx++;
-  //     }
-  //   }
-  // }
+    for (int i=0; i < nDim_; i++) {
+      for (int j=i; j < nDim_; j++) {
+        uiujAvg_[offset1 + idx] -= velAvg_[offset + i] * velAvg_[offset + j];
+        uiujBarAvg_[offset1 + idx] -= velBarAvg_[offset + i] * velBarAvg_[offset + j];
+        idx++;
+      }
+    }
+  }
 }
 
 void
@@ -487,15 +487,15 @@ BdyLayerStatistics::compute_temperature_stats()
     }
   }
 
-  // for (size_t ih=0; ih < nHeights; ih++) {
-  //   int offset = ih * nDim_;
-  //   thetaVarAvg_[ih] -= thetaAvg_[ih] * thetaAvg_[ih];
-  //   thetaBarVarAvg_[ih] -= thetaBarAvg_[ih] * thetaBarAvg_[ih];
-  //   for (int d=0; d < nDim_; d++) {
-  //     thetaUjAvg_[offset + d] -= thetaAvg_[ih] * velAvg_[offset + d];
-  //     thetaUjBarAvg_[offset + d] -= thetaBarAvg_[ih] * velBarAvg_[offset + d];
-  //   }
-  // }
+  for (size_t ih=0; ih < nHeights; ih++) {
+    int offset = ih * nDim_;
+    thetaVarAvg_[ih] -= thetaAvg_[ih] * thetaAvg_[ih];
+    thetaBarVarAvg_[ih] -= thetaBarAvg_[ih] * thetaBarAvg_[ih];
+    for (int d=0; d < nDim_; d++) {
+      thetaUjAvg_[offset + d] -= thetaAvg_[ih] * velAvg_[offset + d];
+      thetaUjBarAvg_[offset + d] -= thetaBarAvg_[ih] * velBarAvg_[offset + d];
+    }
+  }
 }
 
 void
