@@ -335,10 +335,29 @@ HypreLinearSolverConfig::hypre_gmres_solver_config(const YAML::Node& node)
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
     Ifpack2::Hypre::Solver, &HYPRE_GMRESSetTol, tolerance_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-    Ifpack2::Hypre::Solver, &HYPRE_GMRESSetPrintLevel, logLevel)));
+    Ifpack2::Hypre::Solver, &HYPRE_GMRESSetPrintLevel, outputLevel_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-    Ifpack2::Hypre::Solver, &HYPRE_GMRESSetLogging, outputLevel_)));
+    Ifpack2::Hypre::Solver, &HYPRE_GMRESSetLogging, logLevel)));
   paramsPrecond_->set("Solver", Ifpack2::Hypre::GMRES);
+}
+
+void
+HypreLinearSolverConfig::hypre_cogmres_solver_config(const YAML::Node& node)
+{
+  int logLevel = 1;
+  get_if_present(node, "log_level", logLevel, logLevel);
+
+  funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
+    Ifpack2::Hypre::Solver, &HYPRE_COGMRESSetKDim, kspace_)));
+  funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
+    Ifpack2::Hypre::Solver, &HYPRE_COGMRESSetMaxIter, maxIterations_)));
+  funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
+    Ifpack2::Hypre::Solver, &HYPRE_COGMRESSetTol, tolerance_)));
+  funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
+    Ifpack2::Hypre::Solver, &HYPRE_COGMRESSetPrintLevel, outputLevel_)));
+  funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
+    Ifpack2::Hypre::Solver, &HYPRE_COGMRESSetLogging, logLevel)));
+  paramsPrecond_->set("Solver", Ifpack2::Hypre::COGMRES);
 }
 
 void
@@ -354,9 +373,9 @@ HypreLinearSolverConfig::hypre_flexgmres_solver_config(const YAML::Node& node)
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
     Ifpack2::Hypre::Solver, &HYPRE_FlexGMRESSetTol, tolerance_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-    Ifpack2::Hypre::Solver, &HYPRE_FlexGMRESSetPrintLevel, logLevel)));
+    Ifpack2::Hypre::Solver, &HYPRE_FlexGMRESSetPrintLevel, outputLevel_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-    Ifpack2::Hypre::Solver, &HYPRE_FlexGMRESSetLogging, outputLevel_)));
+    Ifpack2::Hypre::Solver, &HYPRE_FlexGMRESSetLogging, logLevel)));
   paramsPrecond_->set("Solver", Ifpack2::Hypre::FlexGMRES);
 }
 
@@ -377,9 +396,9 @@ HypreLinearSolverConfig::hypre_lgmres_solver_config(const YAML::Node& node)
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
     Ifpack2::Hypre::Solver, &HYPRE_LGMRESSetTol, tolerance_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-    Ifpack2::Hypre::Solver, &HYPRE_LGMRESSetPrintLevel, logLevel)));
+    Ifpack2::Hypre::Solver, &HYPRE_LGMRESSetPrintLevel, outputLevel_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-    Ifpack2::Hypre::Solver, &HYPRE_LGMRESSetLogging, outputLevel_)));
+    Ifpack2::Hypre::Solver, &HYPRE_LGMRESSetLogging, logLevel)));
   paramsPrecond_->set("Solver", Ifpack2::Hypre::LGMRES);
 }
 
@@ -394,9 +413,9 @@ HypreLinearSolverConfig::hypre_bicgstab_solver_config(const YAML::Node& node)
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
     Ifpack2::Hypre::Solver, &HYPRE_BiCGSTABSetTol, tolerance_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-    Ifpack2::Hypre::Solver, &HYPRE_BiCGSTABSetPrintLevel, logLevel)));
+    Ifpack2::Hypre::Solver, &HYPRE_BiCGSTABSetPrintLevel, outputLevel_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-    Ifpack2::Hypre::Solver, &HYPRE_BiCGSTABSetLogging, outputLevel_)));
+    Ifpack2::Hypre::Solver, &HYPRE_BiCGSTABSetLogging, logLevel)));
   paramsPrecond_->set("Solver", Ifpack2::Hypre::BiCGSTAB);
 }
 
@@ -412,9 +431,9 @@ HypreLinearSolverConfig::hypre_pcg_solver_config(const YAML::Node& node)
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
                                        Ifpack2::Hypre::Solver, &HYPRE_PCGSetTol, tolerance_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-                                       Ifpack2::Hypre::Solver, &HYPRE_PCGSetPrintLevel, logLevel)));
+                                       Ifpack2::Hypre::Solver, &HYPRE_PCGSetPrintLevel, outputLevel_)));
   funcParams_.push_back(Teuchos::rcp(new Ifpack2::FunctionParameter(
-                                       Ifpack2::Hypre::Solver, &HYPRE_PCGSetLogging, outputLevel_)));
+                                       Ifpack2::Hypre::Solver, &HYPRE_PCGSetLogging, logLevel)));
   paramsPrecond_->set("Solver", Ifpack2::Hypre::PCG);
 }
 
@@ -447,6 +466,9 @@ HypreLinearSolverConfig::configure_hypre_solver
 {
   if (method_ == "hypre_gmres") {
     hypre_gmres_solver_config(node);
+  }
+  else if (method_ == "hypre_cogmres") {
+    hypre_cogmres_solver_config(node);
   }
   else if (method_ == "hypre_lgmres") {
     hypre_lgmres_solver_config(node);

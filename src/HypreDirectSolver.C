@@ -38,6 +38,9 @@ HypreIntType Hypre_ParCSRPCGCreate(MPI_Comm comm, HYPRE_Solver *solver)
 HypreIntType Hypre_ParCSRGMRESCreate(MPI_Comm comm, HYPRE_Solver *solver)
 { return HYPRE_ParCSRGMRESCreate(comm, solver);}
 
+HypreIntType Hypre_ParCSRCOGMRESCreate(MPI_Comm comm, HYPRE_Solver *solver)
+{ return HYPRE_ParCSRCOGMRESCreate(comm, solver);}
+
 HypreIntType Hypre_ParCSRFlexGMRESCreate(MPI_Comm comm, HYPRE_Solver *solver)
 { return HYPRE_ParCSRFlexGMRESCreate(comm, solver);}
 
@@ -173,6 +176,16 @@ HypreDirectSolver::createSolver()
     solverSolvePtr_ = &HYPRE_ParCSRGMRESSolve;
     solverNumItersPtr_ = &HYPRE_GMRESGetNumIterations;
     solverFinalResidualNormPtr_ = &HYPRE_GMRESGetFinalRelativeResidualNorm;
+    break;
+
+  case Hypre::COGMRES:
+    solverCreatePtr_ = &Hypre_ParCSRCOGMRESCreate;
+    solverDestroyPtr_ = &HYPRE_ParCSRCOGMRESDestroy;
+    solverSetupPtr_ = &HYPRE_ParCSRCOGMRESSetup;
+    solverPrecondPtr_ = &HYPRE_ParCSRCOGMRESSetPrecond;
+    solverSolvePtr_ = &HYPRE_ParCSRCOGMRESSolve;
+    solverNumItersPtr_ = &HYPRE_COGMRESGetNumIterations;
+    solverFinalResidualNormPtr_ = &HYPRE_COGMRESGetFinalRelativeResidualNorm;
     break;
 
   case Hypre::FlexGMRES:

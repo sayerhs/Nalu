@@ -149,6 +149,7 @@ private:
   void euclid_precond_config(const YAML::Node&);
 
   void hypre_gmres_solver_config(const YAML::Node&);
+  void hypre_cogmres_solver_config(const YAML::Node&);
   void hypre_lgmres_solver_config(const YAML::Node&);
   void hypre_flexgmres_solver_config(const YAML::Node&);
   void hypre_pcg_solver_config(const YAML::Node&);
